@@ -19,9 +19,9 @@ contract MarketInteractions is Ownable{
     IPoolAddressesProvider public immutable aaveAddressProvider;
     IPool public immutable aavePool;
 
-    address private immutable linkAddress =
-        0x07C725d58437504CA5f814AE406e70E21C5e8e9e;
-    IERC20 private link;
+    address private immutable daiAddress =
+        0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063;
+    IERC20 private dai;
 
     event Borrow_Asset(address asset,uint256 amount, uint256 interestRateMode, uint256 referralCode, address onBehalfOf);
 
@@ -29,7 +29,7 @@ contract MarketInteractions is Ownable{
         aaveAddressProvider = IPoolAddressesProvider(_addressProvider);
         aavePool = IPool(aaveAddressProvider.getPool());
        // owner = payable(msg.sender);
-        link = IERC20(linkAddress);
+        dai = IERC20(daiAddress);
         
     }
  
@@ -43,6 +43,10 @@ contract MarketInteractions is Ownable{
         aavePool.borrow(asset, amount, interestRateMode, referralCode, onBehalfOf);
         emit Borrow_Asset(asset, amount, interestRateMode, referralCode, onBehalfOf);
 
+    }
+
+    function getTokenAddress() public view returns(address){ 
+        return address(dai);
     }
 
 
