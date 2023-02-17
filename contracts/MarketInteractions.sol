@@ -51,7 +51,7 @@ contract MarketInteractions is Ownable {
         uint256 amount = _amount;
         address onBehalfOf = address(this);
         uint16 referralCode = 0;
-        IERC20(_tokenAddress).approve(address(aavePool), MAX_INT);
+        IERC20(_tokenAddress).approve(address(aavePool), amount);
 
         aavePool.deposit(asset, amount, onBehalfOf, referralCode);
         emit Supplied_Liquidity(
