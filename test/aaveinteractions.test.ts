@@ -4,86 +4,60 @@ import { Contract } from "ethers";
 import { ethers, network } from "hardhat";
 import { MarketInteractions } from "../typechain-types";
 
-
-const AAVE_POOL_ADDRESSES_PROVIDERV3: string = "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb"; //polygon
-const DAI: string = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063";
-const aDAI_ADDRESS: string = "0x82E64f49Ed5EC1bC6e43DAD4FC8Af9bb3A2312EE";
-const DAI_WHALE: string = "0x075e72a5eDf65F0A5f44699c7654C1a76941Ddc8";
-const AMOUNT_SUPPLY = ethers.utils.parseEther("0.01");//1000n * 10n ** 6n; 
-const amount = ethers.utils.parseEther("10");
-
+const AAVE_POOL_ADDRESSES_PROVIDERV3 = "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb"; //polygon
+const DAI_ADDRESS = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063";
+const A_DAI_ADDRESS = "0x82E64f49Ed5EC1bC6e43DAD4FC8Af9bb3A2312EE";
+const DAI_WHALE_ADDRESS = "0x075e72a5eDf65F0A5f44699c7654C1a76941Ddc8";
+const AMOUNT_BORROW = ethers.utils.parseEther("0.1"); // 1000n * 10n ** 6n;
+const AMOUNT_SUPPLY = ethers.utils.parseEther("10");
 
 describe("MarketInteractions", () => {
-    let aaveMarketInteractions: MarketInteractions;
-    let accounts: SignerWithAddress[];
-    let dai: Contract;
-    let aDAI: Contract;
-    let daiWhale: SignerWithAddress;
+  let aaveMarketInteractions: MarketInteractions;
+  let accounts: SignerWithAddress[];
+  let dai: Contract;
+  let aDai: Contract;
+  let daiWhale: SignerWithAddress;
 
+  beforeEach(async () => {
+    accounts = await ethers.getSigners();
 
-  
+    await network.provider.request({
+      method: "hardhat_impersonateAccount",
+      params: [DAI_WHALE_ADDRESS],
+    });
 
-    beforeEach(async () => {
-          
-        accounts = await ethers.getSigners();
+    dai = await ethers.getContractAt("IERC20", DAI_ADDRESS);
+    aDai = await ethers.getContractAt("IERC20", A_DAI_ADDRESS);
+    daiWhale = await ethers.getSigner(DAI_WHALE_ADDRESS);
 
-         await network.provider.request({
-            method: "hardhat_impersonateAccount",
-            params: [DAI_WHALE]
-         });
-        
-        dai = await ethers.getContractAt("IERC20", DAI);
-        aDAI = await ethers.getContractAt("IERC20", aDAI_ADDRESS)
-        daiWhale = await ethers.getSigner(DAI_WHALE);
+    await dai.connect(daiWhale).transfer(accounts[0].address, AMOUNT_SUPPLY);
 
-        await dai.connect(daiWhale).transfer(accounts[0].address, AMOUNT_SUPPLY);
-        // Deploy the contract
-        const MarketInteractionsFactory = await ethers.getContractFactory("MarketInteractions");
-            aaveMarketInteractions = await MarketInteractionsFactory.deploy(AAVE_POOL_ADDRESSES_PROVIDERV3);
-        await aaveMarketInteractions.deployed()
-        //console.log(accounts.address);
-        
+    // Deploy the contract
+    const marketInteractionsFactory = await ethers.getContractFactory("MarketInteractions");
+    aaveMarketInteractions = await marketInteractionsFactory.deploy(AAVE_POOL_ADDRESSES_PROVIDERV3);
+    await aaveMarketInteractions.deployed();
+    console.log(aaveMarketInteractions.address);
+  });
 
-        });
-    
-        it("Contract should be set up to work with dai", async () => {
-        // await aaveMarketInteractions.deployed()
-            expect(await aaveMarketInteractions.getTokenAddress()).to.eq(DAI);
-        });
-    
-        it("Should have a valid address provider", async () => {
-            const addressProvider = await aaveMarketInteractions.aaveAddressProvider();
-            expect(addressProvider).to.equal(AAVE_POOL_ADDRESSES_PROVIDERV3);
-        });
+  it("Contract should be set up to work with DAI", async () => {
+    expect(await aaveMarketInteractions.getTokenAddress()).to.equal(DAI_ADDRESS);
+  });
 
-        it("Should be able to borrow an asset", async () => {
-             
-            
-           
-            await aaveMarketInteractions.borrow(amount, DAI);
+  it("Should supply liquidity to Aave", async () => {
+    await dai.connect(accounts[0]).approve(aaveMarketInteractions.address, ethers.constants.MaxUint256);   
+    const balanceBefore = await dai.balanceOf(accounts[0].address);
+    await aaveMarketInteractions.connect(accounts[0]).supplyLiquidity(DAI_ADDRESS, AMOUNT_SUPPLY);
+    const balanceAfter = await dai.balanceOf(accounts[0].address);
+    const aDaiBalance = await aDai.balanceOf(aaveMarketInteractions.address);
+    expect(aDaiBalance).to.equal(AMOUNT_SUPPLY);
+    expect(balanceAfter).to.equal(balanceBefore.sub(AMOUNT_SUPPLY));
+  });
 
-            // Check if the borrow event is emitted with the correct parameters
-            const borrowEvent = await aaveMarketInteractions.filters.Borrow_Asset();
-            const eventArgs = await aaveMarketInteractions.queryFilter(borrowEvent);
-
-            expect(eventArgs.length).to.equal(1);
-            expect(eventArgs[0].args.asset).to.equal(DAI);
-            expect(eventArgs[0].args.amount).to.equal(amount);
-
-            // Check if the contract has borrowed the correct amount of tokens
-            const token = await ethers.getContractAt("ERC20", DAI);
-            const contractTokenBalance = await token.balanceOf(aaveMarketInteractions.address);
-            expect(contractTokenBalance).to.equal(amount);
-
-            // Check if the AavePool contract has received the borrowed tokens
-            const aavePoolTokenBalance = await token.balanceOf(AAVE_POOL_ADDRESSES_PROVIDERV3);
-            expect(aavePoolTokenBalance).to.equal(amount);
-
-      
-        });
-    
-    
-    
-        
-
-})
+  it("Should borrow from Aave", async () => {
+    await dai.connect(accounts[0]).approve(aaveMarketInteractions.address, ethers.constants.MaxUint256);
+    await aaveMarketInteractions.connect(accounts[0]).supplyLiquidity(DAI_ADDRESS, AMOUNT_SUPPLY);
+    await aaveMarketInteractions.connect(accounts[0]).borrow(AMOUNT_BORROW, DAI_ADDRESS);
+    const daiBalance = await dai.balanceOf(aaveMarketInteractions.address);
+    expect(daiBalance).to.equal(AMOUNT_BORROW);
+  });
+});
