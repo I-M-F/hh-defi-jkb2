@@ -28,3 +28,6 @@ console.log vTransaction receipt
 
 and values from function
 
+Variable dept token 
+approveDelegation 
+Borrow tx

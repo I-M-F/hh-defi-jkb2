@@ -9,8 +9,8 @@ const AAVE_POOL_ADDRESSES_PROVIDERV3 =
 const DAI_ADDRESS = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063"
 const A_DAI_ADDRESS = "0x82E64f49Ed5EC1bC6e43DAD4FC8Af9bb3A2312EE"
 const DAI_WHALE_ADDRESS = "0x075e72a5eDf65F0A5f44699c7654C1a76941Ddc8"
-const AMOUNT_BORROW = ethers.utils.parseEther("0.1") // 1000n * 10n ** 6n;
-const AMOUNT_SUPPLY = ethers.utils.parseEther("10")
+const AMOUNT_BORROW = ethers.utils.parseEther("10") // 1000n * 10n ** 6n;
+const AMOUNT_SUPPLY = ethers.utils.parseEther("100")
 
 describe("MarketInteractions", () => {
     let aaveMarketInteractions: MarketInteractions
@@ -73,6 +73,7 @@ describe("MarketInteractions", () => {
         )
         const aDaiBalance = await aDai.balanceOf(aaveMarketInteractions.address)
         console.log("aDaiBalance ", ethers.utils.formatEther(aDaiBalance))
+        
         expect(aDaiBalance).to.equal(AMOUNT_SUPPLY)
         expect(balanceAfter).to.equal(balanceBefore.sub(AMOUNT_SUPPLY))
     })
